@@ -1,3 +1,11 @@
+# ----------------------------------------------------------------------
+# Name: Server (Receiver) file of the TCP implementation
+# Purpose: CS258 - Coding Project 
+# Authors: Abishek Padaki and Jatin Battu
+# ----------------------------------------------------------------------
+
+
+
 from collections import deque
 import time
 import sys

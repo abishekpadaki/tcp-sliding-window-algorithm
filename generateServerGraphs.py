@@ -1,3 +1,9 @@
+# ----------------------------------------------------------------------
+# Name: Graph plotting script for Server
+# Purpose: CS258 - Coding Project 
+# Authors: Abishek Padaki and Jatin Battu
+# ----------------------------------------------------------------------
+
 import plotly.graph_objs as go
 
 def generate_window_size_graphs():
