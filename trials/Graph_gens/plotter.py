@@ -9,8 +9,8 @@ times = []
 values = []
 for line in lines:
     value,timestamp = line.strip().split(",")
-    times.append((timestamp))
-    values.append((value))
+    times.append(float(timestamp))
+    values.append(int(value))
 
 # create time series scatter plot
 fig = go.Figure()

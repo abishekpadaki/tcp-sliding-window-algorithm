@@ -12,7 +12,7 @@ wrap_around_limit = 65536  # Sequence number wrap around limit
 
 
 def elap_time(start_time):
-    elapsed_time = time.time() - start_time
+    elapsed_time = time.monotonic() - start_time
     return elapsed_time
 
 # Function to check and maintain the order of received sequence numbers
@@ -46,6 +46,7 @@ def drop_packet_probability():
 # Main function
 if __name__ == "__main__":
     # Create a socket object
+    start_time = time.monotonic()
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     print("Socket successfully created")
 
@@ -83,7 +84,7 @@ if __name__ == "__main__":
 
     # Main loop to process incoming packets
     while True:
-        start_time = time.time()
+        
         print(f'\nTotal Packets "{total_pkts}" received\n')
         data = str(c.recv(1024).decode('utf8')).strip()
         for d in data.split(' '):
@@ -101,13 +102,20 @@ if __name__ == "__main__":
                 file2.write(str(d) + ',' + str(elap_time(start_time)) + '\n')
             pkts_sent += 1
             total_pkts += 1
-            if pkts_received == 1000:
+            if pkts_received % 1000 == 0:
+                print("Caluclating Good-put...\n")
                 file3.write("Packets Received:" + str(pkts_received) + " Packets Sent: " + str(pkts_sent) +
                             " Good-put:" + str(pkts_received / pkts_sent) + "\n")
-                pkts_sent = 0
-                pkts_received = 0
-            if total_pkts > 10000:
+                print("Packets Received:" + str(pkts_received) + " Packets Sent: " + str(pkts_sent) +
+                            " Good-put:" + str(pkts_received / pkts_sent) + "\n")
+            if total_pkts >= 10000:
                 print("10000 Packets received! Closing the Server...\n")
+                print("Caluclating Good-put...\n")
+                file3.write("Packets Received:" + str(pkts_received) + " Packets Sent: " + str(pkts_sent) +
+                            " Good-put:" + str(pkts_received / pkts_sent) + "\n")
+                print("\n Final Packets Received:" + str(pkts_received) + " Final Packets Sent: " + str(pkts_sent) +
+                            " Final Good-put:" + str(pkts_received / pkts_sent) + "\n")
+
                 # Close log files
                 file1.close()
                 file2.close()

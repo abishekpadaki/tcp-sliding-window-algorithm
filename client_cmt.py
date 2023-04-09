@@ -12,12 +12,14 @@ pkt_size = 1  # Packet size
 extra_acknowledgements = []  # Extra acknowledgements
 seq_num_wrap_around = 65536  # Sequence number wrap around limit
 terminate_threads = False  # Global flag to signal threads to terminate
+start_time = time.monotonic()
 
 # Function to get the current time in milliseconds
 
 
-def current_time():
-    return int(round(time.time() * 1000))
+def elap_time(start_time):
+    elapsed_time = time.monotonic() - start_time
+    return elapsed_time
 
 # Function to transmit packets to the server
 
@@ -25,9 +27,10 @@ def current_time():
 def transmit_packets(sock):
     global seq_num
     global terminate_threads
+    global start_time
     while not terminate_threads: # Check for termination flag
         if len(sender_window) < window_limit:
-            sender_window.append([seq_num, current_time()])
+            sender_window.append([seq_num, elap_time(start_time)])
             temp = str(seq_num) + ' '
             msg = temp.encode('utf8')
             sock.sendall(msg)
@@ -69,8 +72,8 @@ window_change = 0
 
 
 def handle_retransmission(sock):
+    global start_time
     global window_limit
-    timeout_duration_ms = 5000
     global window_change
     i = 0
     if len(extra_acknowledgements) >= 20:
@@ -79,7 +82,7 @@ def handle_retransmission(sock):
             sock.sendall(msg)
             window_limit = int(window_limit / 2)
             window_change = 1
-            sender_window[i][1] = current_time()
+            sender_window[i][1] = elap_time(start_time)
             print(
                 f'\nSequence number "{sender_window[i][0]}" retransmitted\n')
 
@@ -88,7 +91,7 @@ def handle_retransmission(sock):
 
 def adjust_window_size(sock):
     global window_change
-    window_timeout_ms = 3000
+    global start_time
     max_window_size = 10000
     global window_limit
     old_window_size = window_limit
@@ -104,7 +107,7 @@ def adjust_window_size(sock):
     else:
         window_limit = new_window_limit
     print(f'\n window size changed from {old_window_size} to {window_limit}')
-    file1.write(str(window_limit) + "," + str(current_time()) + "\n")
+    file1.write(str(window_limit) + "," + str(elap_time(start_time)) + "\n")
 
 
 # Main function
@@ -125,13 +128,13 @@ if __name__ == "__main__":
 
     choice = input("Are you ready to begin sending packets? (Y/N):")
     if choice.lower() == 'n':
-        console.log(choice.lower())
+        print(choice.lower())
         sys.exit()
     elif choice.lower() == 'y': 
 
         # Open file to log window size changes
         file1 = open("windowsize.txt", "a")
-        file1.write(str(window_limit) + "," + str(current_time()) + "\n")
+        file1.write(str(window_limit) + "," + str(elap_time(start_time)) + "\n")
 
         # Receive server response
         while True:
