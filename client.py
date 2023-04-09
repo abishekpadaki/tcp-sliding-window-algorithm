@@ -115,7 +115,7 @@ if __name__ == "__main__":
     # Create a socket object
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     port = 12345  # Server port
-    server_ip_address = '127.0.0.1'  # Server IP address
+    server_ip_address = '10.0.0.160'  # Server IP address
 
     # Connect to the server
     s.connect((server_ip_address, port))
