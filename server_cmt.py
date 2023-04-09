@@ -108,7 +108,7 @@ if __name__ == "__main__":
                             " Good-put:" + str(pkts_received / pkts_sent) + "\n")
                 print("Packets Received:" + str(pkts_received) + " Packets Sent: " + str(pkts_sent) +
                             " Good-put:" + str(pkts_received / pkts_sent) + "\n")
-            if total_pkts >= 10000:
+            if total_pkts >= 100000:
                 print("10000 Packets received! Closing the Server...\n")
                 print("Caluclating Good-put...\n")
                 file3.write("Packets Received:" + str(pkts_received) + " Packets Sent: " + str(pkts_sent) +
