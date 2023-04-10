@@ -19,6 +19,9 @@ extra_acknowledgements = []  # Extra acknowledgements
 seq_num_wrap_around = 65536  # Sequence number wrap around limit
 terminate_threads = False  # Global flag to signal threads to terminate
 start_time = time.monotonic()
+terminate_event = threading.Event()
+data_lock = threading.Lock()
+
 
 # Function to get the current time in milliseconds
 
@@ -32,44 +35,45 @@ def elap_time(start_time):
 
 def transmit_packets(sock):
     global seq_num
-    global terminate_threads
     global start_time
-    while not terminate_threads: # Check for termination flag
-        if len(sender_window) < window_limit:
-            sender_window.append([seq_num, elap_time(start_time)])
-            temp = str(seq_num) + ' '
-            msg = temp.encode('utf8')
-            sock.sendall(msg)
-            print(
-                f'\nSequence number "{temp}" sent from the client to the server\n')
-            seq_num = (seq_num + pkt_size) % seq_num_wrap_around
-            time.sleep(0.0125)
-
+    while not terminate_event.is_set():
+        with data_lock: # Check for termination flag
+            if len(sender_window) < window_limit:
+                sender_window.append([seq_num, elap_time(start_time)])
+                temp = str(seq_num) + ' '
+                seq_num = (seq_num + pkt_size) % seq_num_wrap_around
+                msg = temp.encode('utf8')
+                sock.sendall(msg)
+                print(f'\nSequence number "{temp}" sent from the client to the server\n')
+            else:
+                temp = None
+                print('\nSender Window Full\n')
 # Function to process acknowledgements received from the server
 
 
 def process_acknowledgements(sock):
-    global terminate_threads
-    while not terminate_threads: # Check for termination flag
+    global terminate_event
+    while not terminate_event.is_set(): # Check for termination flag
         data = str(sock.recv(1024).decode('utf8')).strip()
         if not data:
             print("Server closed the connection.")
-            terminate_threads = True  # Set termination flag to True
+            terminate_event.set()  # Signal termination
             break
         if data is not None and data != "":
-            for d in data.split(' '):
-                print(f'\nAcknowledgement number "{d}" received\n')
-                if len(sender_window) > 0 and int(d) == sender_window[0][0]:
-                    sender_window.popleft()
-                    while len(sender_window) != 0 and sender_window[0][0] in extra_acknowledgements:
-                        extra_acknowledgements.remove(sender_window[0][0])
+            with data_lock:
+                for d in data.split(' '):
+                    print(f'\nAcknowledgement number "{d}" received\n')
+                    if len(sender_window) > 0 and int(d) == sender_window[0][0]:
                         sender_window.popleft()
-                else:
-                    extra_acknowledgements.append(int(d))
-                    handle_retransmission(sock)
-                if len(sender_window) > 0:
-                    print(sender_window[0], "\n")
-            adjust_window_size(sock)
+                        while len(sender_window) != 0 and sender_window[0][0] in extra_acknowledgements:
+                            extra_acknowledgements.remove(sender_window[0][0])
+                            sender_window.popleft()
+                    else:
+                        extra_acknowledgements.append(int(d))
+                        handle_retransmission(sock)
+                    if len(sender_window) > 0:
+                        print(sender_window[0], "\n")
+                adjust_window_size(sock)
 
 
 window_change = 0
@@ -98,7 +102,7 @@ def handle_retransmission(sock):
 def adjust_window_size(sock):
     global window_change
     global start_time
-    max_window_size = 10000
+    max_window_size = 100000
     global window_limit
     old_window_size = window_limit
     if window_change == 0:
@@ -121,7 +125,7 @@ if __name__ == "__main__":
     # Create a socket object
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     port = 12345  # Server port
-    server_ip_address = '10.0.0.160'  # Server IP address
+    server_ip_address = '127.0.0.1'  # Server IP address
 
     # Connect to the server
     s.connect((server_ip_address, port))
@@ -148,17 +152,22 @@ if __name__ == "__main__":
             if data is not None and data != "":
                 print(data, '\n\n')
                 break
-
-        # Create and start threads to handle packet transmission and acknowledgement processing
-        t1 = threading.Thread(target=transmit_packets, args=(s,))
-        t2 = threading.Thread(target=process_acknowledgements, args=(s,))
-        t1.start()
-        t2.start()
-        t1.join()
-        t2.join()
-
-        # Close the log file
-        file1.close()
+        try:
+            # Create and start threads to handle packet transmission and acknowledgement processing
+            t1 = threading.Thread(target=transmit_packets, args=(s,))
+            t2 = threading.Thread(target=process_acknowledgements, args=(s,))
+            t1.start()
+            t2.start()
+            t1.join()
+            t2.join()
+        except:
+            print(f"Error: {e}")
+            terminate_event.set()  # Signal termination
+            t1.join()
+            t2.join()
+        finally:
+         # Close the log file
+            file1.close()
     else:
         print(f"Incorrect input {choice.lower()}. Please run the program again and enter y or n")
         sys.exit()
