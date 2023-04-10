@@ -21,6 +21,7 @@ terminate_threads = False  # Global flag to signal threads to terminate
 start_time = time.monotonic()
 terminate_event = threading.Event()
 data_lock = threading.Lock()
+pkt_ctr = 0
 
 
 # Function to get the current time in milliseconds
@@ -36,24 +37,33 @@ def elap_time(start_time):
 def transmit_packets(sock):
     global seq_num
     global start_time
+    global drop_emitter
+    global pkt_ctr
     while not terminate_event.is_set():
         with data_lock: # Check for termination flag
             if len(sender_window) < window_limit:
-                sender_window.append([seq_num, elap_time(start_time)])
-                temp = str(seq_num) + ' '
-                seq_num = (seq_num + pkt_size) % seq_num_wrap_around
-                msg = temp.encode('utf8')
-                sock.sendall(msg)
-                print(f'\nSequence number "{temp}" sent from the client to the server\n')
-                # time.sleep(0.0125)
+                if(pkt_ctr >=100 and extra_acknowledgements):
+                    handle_retransmission(sock)
+                else:
+
+                    sender_window.append(seq_num)
+                    temp = str(seq_num) + ' '
+                    seq_num = (seq_num + pkt_size) % seq_num_wrap_around
+                    # pkt_ctr +=1
+                    msg = temp.encode('utf8')
+                    sock.sendall(msg)
+                    print(f'\nSequence number "{temp}" sent from the client to the server\n')
             else:
                 temp = None
+                print(len(sender_window),window_limit, sender_window)    
                 print('\nSender Window Full\n')
 # Function to process acknowledgements received from the server
 
 
 def process_acknowledgements(sock):
     global terminate_event
+    global window_change
+    global window_limit
     while not terminate_event.is_set(): # Check for termination flag
         data = str(sock.recv(1024).decode('utf8')).strip()
         if not data:
@@ -64,14 +74,21 @@ def process_acknowledgements(sock):
             with data_lock:
                 for d in data.split(' '):
                     print(f'\nAcknowledgement number "{d}" received\n')
-                    if len(sender_window) > 0 and int(d) == sender_window[0][0]:
+                    if len(sender_window) > 0 and int(d) == sender_window[0]:
                         sender_window.popleft()
-                        while len(sender_window) != 0 and sender_window[0][0] in extra_acknowledgements:
-                            extra_acknowledgements.remove(sender_window[0][0])
-                            sender_window.popleft()
+                        # while len(sender_window) != 0 and sender_window[0][0] in extra_acknowledgements:
+                        #     extra_acknowledgements.remove(sender_window[0][0])
+                        #     sender_window.popleft()
                     else:
-                        extra_acknowledgements.append(int(d))
-                        handle_retransmission(sock)
+                        #sender_window.popleft()
+                        if len(sender_window) > 0:
+                            extra_acknowledgements.append(sender_window[0])
+                            print(f"\nLooks like {sender_window[0]} has been dropped. Adding to droppacks\n")
+                            sender_window.popleft()
+                            # window_limit = int(window_limit / 2)
+                            # window_change = 1
+
+                        # handle_retransmission(sock)
                     if len(sender_window) > 0:
                         print(sender_window[0], "\n")
                 adjust_window_size(sock)
@@ -86,16 +103,25 @@ def handle_retransmission(sock):
     global start_time
     global window_limit
     global window_change
-    i = 0
-    if len(extra_acknowledgements) >= 20:
-        if len(sender_window) > 0:
-            msg = (str(sender_window[i][0]) + ' ').encode('utf8')
+    global extra_acknowledgements
+    global pkt_ctr
+    with data_lock:
+    #i = 0
+    # if len(extra_acknowledgements) >= 20:
+    #     if len(sender_window) > 0:
+        if len(sender_window) < window_limit:
+            msg = (str(extra_acknowledgements[0]) + ' ').encode('utf8')
             sock.sendall(msg)
-            window_limit = int(window_limit / 2)
-            window_change = 1
-            sender_window[i][1] = elap_time(start_time)
-            print(
-                f'\nSequence number "{sender_window[i][0]}" retransmitted\n')
+            print(f'\nSequence number "{extra_acknowledgements[0]}" retransmitted\n')
+            extra_acknowledgements.pop(0)
+            if(len(extra_acknowledgements) == 0):
+                window_limit = int(window_limit / 2)
+                window_change = 1
+                pkt_ctr = 0
+            # sender_window[i][1] = elap_time(start_time)
+            
+
+
 
 # Function to adjust window size based on retransmission events
 
@@ -144,7 +170,7 @@ if __name__ == "__main__":
     elif choice.lower() == 'y': 
 
         # Open file to log window size changes
-        file1 = open("txt_files/windowsize.txt", "a")
+        file1 = open("windowsize.txt", "a")
         file1.write(str(window_limit) + "," + str(elap_time(start_time)) + "\n")
 
         # Receive server response

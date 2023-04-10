@@ -3,10 +3,10 @@ import time
 
 def generate_window_size_graphs():
         # read data from file
-    with open("windowsize.txt", "r") as f:
+    with open("txt_files/windowsize.txt", "r") as f:
         lines = f.readlines()
 
-    with open("receiver_window.txt", "r") as r:
+    with open("txt_files/receiver_window.txt", "r") as r:
         rlines = r.readlines()
 
     # separate time and value
@@ -38,7 +38,7 @@ def generate_window_size_graphs():
 
 def generate_seq_received_graph():
         # read data from file
-    with open("seq_number_received.txt", "r") as f:
+    with open("txt_files/seq_number_received.txt", "r") as f:
         lines = f.readlines()
 
     # separate time and value
@@ -58,7 +58,7 @@ def generate_seq_received_graph():
 def generate_seq_dropped_graph():
 
     # read data from file
-    with open("seq_number_dropped.txt", "r") as f:
+    with open("txt_files/seq_number_dropped.txt", "r") as f:
         lines = f.readlines()
 
     # separate time and value
