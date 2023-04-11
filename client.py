@@ -53,6 +53,7 @@ def transmit_packets(sock):
 
 
 def process_acknowledgements(sock):
+    global window_change
     global terminate_event
     while not terminate_event.is_set(): # Check for termination flag
         data = str(sock.recv(1024).decode('utf8')).strip()
@@ -69,12 +70,13 @@ def process_acknowledgements(sock):
                         while len(sender_window) != 0 and sender_window[0][0] in extra_acknowledgements:
                             extra_acknowledgements.remove(sender_window[0][0])
                             sender_window.popleft()
+                        window_change = 0
                     else:
                         extra_acknowledgements.append(int(d))
                         handle_retransmission(sock)
                     if len(sender_window) > 0:
                         print(sender_window[0], "\n")
-                adjust_window_size(sock)
+                    adjust_window_size(sock)
 
 
 window_change = 0
@@ -137,38 +139,30 @@ if __name__ == "__main__":
     msg = ("Network").encode('utf8')
     s.sendall(msg)
 
-    choice = input("Are you ready to begin sending packets? (Y/N):")
-    if choice.lower() == 'n':
-        print(choice.lower())
-        sys.exit()
-    elif choice.lower() == 'y': 
-
         # Open file to log window size changes
-        file1 = open("txt_files/windowsize.txt", "a")
-        file1.write(str(window_limit) + "," + str(elap_time(start_time)) + "\n")
+    file1 = open("txt_files/windowsize.txt", "a")
+    file1.write(str(window_limit) + "," + str(elap_time(start_time)) + "\n")
 
         # Receive server response
-        while True:
-            data = str(s.recv(1024).decode('utf8')).strip()
-            if data is not None and data != "":
-                print(data, '\n\n')
-                break
-        try:
+    while True:
+        data = str(s.recv(1024).decode('utf8')).strip()
+        if data is not None and data != "":
+            print(data, '\n\n')
+            break
+    try:
             # Create and start threads to handle packet transmission and acknowledgement processing
-            t1 = threading.Thread(target=transmit_packets, args=(s,))
-            t2 = threading.Thread(target=process_acknowledgements, args=(s,))
-            t1.start()
-            t2.start()
-            t1.join()
-            t2.join()
-        except:
-            print(f"Error: {e}")
-            terminate_event.set()  # Signal termination
-            t1.join()
-            t2.join()
-        finally:
+        t1 = threading.Thread(target=transmit_packets, args=(s,))
+        t2 = threading.Thread(target=process_acknowledgements, args=(s,))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+    except:
+        print(f"Error. Terminating.")
+        terminate_event.set()  # Signal termination
+        t1.join()
+        t2.join()
+    finally:
          # Close the log file
-            file1.close()
-    else:
-        print(f"Incorrect input {choice.lower()}. Please run the program again and enter y or n")
-        sys.exit()
+        file1.close()
+   
